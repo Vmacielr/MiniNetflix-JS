@@ -1,16 +1,15 @@
-var express = require('express');
+const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid'); // Pour générer des identifiants uniques
-var router = express.Router();
+const { v4: uuidv4 } = require('uuid');
+const router = express.Router();
 
 const UPLOADS_DIR = path.join(__dirname, '../uploads');
 const VIDEOS_SUBDIR = 'videos';
 const IMAGES_SUBDIR = 'images';
 const DATA_FILE_PATH = path.join(__dirname, '../data/videos.json');
 
-// S'assurer que les dossiers d'upload et de données existent
 const videosPath = path.join(UPLOADS_DIR, VIDEOS_SUBDIR);
 const imagesPath = path.join(UPLOADS_DIR, IMAGES_SUBDIR);
 const dataDir = path.dirname(DATA_FILE_PATH);
@@ -19,7 +18,6 @@ if (!fs.existsSync(videosPath)) fs.mkdirSync(videosPath, { recursive: true });
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-// Configuration de Multer pour gérer les fichiers vidéo et image
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     let destPath;
@@ -33,8 +31,6 @@ const storage = multer.diskStorage({
     cb(null, destPath);
   },
   filename: function (req, file, cb) {
-    // Remplacer les espaces par des underscores pour éviter les problèmes potentiels
-    // Pour une robustesse accrue, envisagez d'ajouter un timestamp ou un identifiant unique
     cb(null, file.originalname.replace(/\s+/g, '_'));
   }
 });
@@ -55,7 +51,6 @@ const upload = multer({
   }
 });
 
-// Fonctions utilitaires pour lire/écrire dans videos.json
 const readVideoData = () => {
   try {
     if (fs.existsSync(DATA_FILE_PATH)) {
@@ -70,13 +65,37 @@ const readVideoData = () => {
 
 const writeVideoData = (data) => {
   try {
-    fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(data, null, 2)); // null, 2 pour un joli formatage
+    fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(data, null, 2));
   } catch (error) {
     console.error("Erreur d'écriture dans videos.json:", error);
   }
 };
 
-/* POST upload page. */
+router.delete('/delete/:id', (req, res) => {
+  const videoId = req.params.id;
+  const videos = readVideoData();
+  const videoIndex = videos.findIndex(v => v.id === videoId);
+  if (videoIndex === -1) return res.status(404).send('Vidéo non trouvée');
+
+  const video = videos[videoIndex];
+  if (video.videoFile) fs.unlinkSync(path.join(UPLOADS_DIR, video.videoFile));
+  if (video.imageFile) fs.unlinkSync(path.join(UPLOADS_DIR, video.imageFile));
+  videos.splice(videoIndex, 1);
+  writeVideoData(videos);
+  res.status(200).send('Vidéo supprimée');
+});
+
+router.delete('/clear', (req, res) => {
+  const videos = readVideoData();
+  videos.forEach(video => {
+    if (video.videoFile) fs.unlinkSync(path.join(UPLOADS_DIR, video.videoFile));
+    if (video.imageFile) fs.unlinkSync(path.join(UPLOADS_DIR, video.imageFile));
+  });
+  writeVideoData([]);
+  res.status(200).send('Toutes les vidéos supprimées');
+});
+
+
 router.post('/upload', upload.fields([
   { name: 'videoFile', maxCount: 1 },
   { name: 'imageFile', maxCount: 1 }
@@ -87,12 +106,16 @@ router.post('/upload', upload.fields([
 
   const videoFile = req.files.videoFile[0];
   const imageFile = req.files.imageFile ? req.files.imageFile[0] : null;
-  const { title, description } = req.body;
+  const { title, description, themes } = req.body;
+
+  if (!imageFile) {
+    fs.unlinkSync(videoFile.path); // Nettoyer la vidéo si pas d'image
+    return res.status(400).send('La photo est manquante.');
+  }
 
   if (!title) {
-    // Nettoyer les fichiers uploadés si la validation échoue
     fs.unlinkSync(videoFile.path);
-    if (imageFile) fs.unlinkSync(imageFile.path);
+    fs.unlinkSync(imageFile.path);
     return res.status(400).send('Titre du film manquant.');
   }
 
@@ -101,18 +124,18 @@ router.post('/upload', upload.fields([
     id: uuidv4(),
     title: title,
     description: description || "",
-    videoFile: path.join(VIDEOS_SUBDIR, videoFile.filename), // Chemin relatif
-    imageFile: imageFile ? path.join(IMAGES_SUBDIR, imageFile.filename) : null, // Chemin relatif
+    videoFile: path.join(VIDEOS_SUBDIR, videoFile.filename),
+    imageFile: imageFile ? path.join(IMAGES_SUBDIR, imageFile.filename) : null,
     originalVideoName: videoFile.originalname,
     originalImageName: imageFile ? imageFile.originalname : null,
     uploadedAt: new Date().toISOString(),
-    // La durée et autres infos nécessiteraient des outils comme ffmpeg (étape plus avancée)
+    themes: Array.isArray(themes) ? themes : [themes],
   };
+  
 
   videos.push(newVideoEntry);
   writeVideoData(videos);
 
-  // Rediriger vers la page d'accueil pour voir la nouvelle vidéo
   res.redirect('/');
 });
 
