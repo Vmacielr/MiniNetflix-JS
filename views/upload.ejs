@@ -1,0 +1,48 @@
+<link rel='stylesheet' href='/stylesheets/style.css' />
+</head>
+<body>
+  <div id="uploadPageContainer">
+    <h1>Uploader une nouvelle vidéo</h1>
+    <form action="/api/upload" method="POST" enctype="multipart/form-data">
+      <div>
+        <label for="title">Titre du film :</label>
+        <input type="text" id="title" name="title" required>
+      </div>
+
+      <div>
+        <label for="description">Description :</label>
+        <textarea id="description" name="description" rows="4"></textarea>
+      </div>
+
+      <div>
+        <label for="videoFile">Fichier Vidéo (obligatoire) :</label>
+        <input type="file" id="videoFile" name="videoFile" accept="video/*" required />
+      </div>
+
+      <div>
+        <label for="imageFile">Image de couverture (obligatoire) :</label>
+        <input type="file" id="imageFile" name="imageFile" accept="image/*" />
+      </div>
+
+      <div>
+        <label for="themes">Thèmes du film :</label>
+        <select id="themes" name="themes" multiple required>
+          <option value="Action">Action</option>
+          <option value="Aventure">Aventure</option>
+          <option value="Comédie">Comédie</option>
+          <option value="Drame">Drame</option>
+          <option value="Fantastique">Fantastique</option>
+          <option value="Horreur">Horreur</option>
+          <option value="Science-Fiction">Science-Fiction</option>
+          <option value="Romance">Romance</option>
+          <option value="Documentaire">Documentaire</option>
+        </select>
+        <small>(Maintenir Ctrl ou Cmd pour sélectionner plusieurs thèmes)</small>
+      </div>
+      <b></b>
+
+      <button type="submit">Envoyer</button>
+    </form>
+  </div>
+</body>
+</html>

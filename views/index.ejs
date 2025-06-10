@@ -1,0 +1,128 @@
+<html lang="fr">
+<head>
+  <link rel='stylesheet' href='/stylesheets/style.css' />
+</head>
+<body>
+
+  <header>
+    <h1>NetSleep</h1>
+    <a class="upload-button" href="/upload">📤 Uploader une vidéo</a>
+    <% if (videos.length > 0) { %>
+      <button id="clear-all-button" class="clear-button">🧹 Tout effacer</button>
+    <% } %>
+  </header>
+
+  <% if (videos && videos.length > 0) { %>
+    <div class="video-gallery">
+      <% videos.forEach(function(video, index) { %>
+        <div class="video-item" data-id="<%= video.id %>">
+          <% if (video.imageFile) { %>
+            <div class="thumbnail-container" data-video="/uploads/<%= encodeURIComponent(video.videoFile) %>">
+              <img src="/uploads/<%= encodeURIComponent(video.imageFile) %>" alt="Couverture pour <%= video.title %>" class="video-thumbnail">
+              <% if (video.description && video.description.trim() !== "") { %>
+                <div class="thumbnail-description"><%= video.description %></div>
+              <% } %>
+            </div>
+          <% } else { %>
+            <div class="video-thumbnail-placeholder thumbnail-container" data-video="/uploads/<%= encodeURIComponent(video.videoFile) %>">
+              Pas d'image
+              <% if (video.description && video.description.trim() !== "") { %>
+                <div class="thumbnail-description"><%= video.description %></div>
+              <% } %>
+            </div>
+          <% } %>
+
+          <h3><%= video.title %></h3>
+
+          <% if (video.themes && video.themes.length > 0) { %>
+            <p class="video-themes">Thèmes : <%= video.themes.join(', ') %></p>
+          <% } %>
+
+          <p class="video-filename">Fichier: <%= video.originalVideoName %></p>
+          <% if (video.uploadedAt) { %>
+            <p class="video-upload-date">Uploadé le: <%= new Date(video.uploadedAt).toLocaleDateString('fr-FR') %></p>
+          <% } %>
+
+          <!-- Bouton supprimer -->
+          <button class="delete-button">🗑️ Supprimer</button>
+        </div>
+      <% }); %>
+    </div>
+  <% } else { %>
+    <p>Aucune vidéo trouvée. <a href="/upload">Pourquoi ne pas en uploader une ?</a></p>
+  <% } %>
+
+  <!-- Modal vidéo -->
+  <div id="video-modal" class="modal">
+    <div class="modal-content">
+      <span id="modal-close" class="close">&times;</span>
+      <video id="modal-video" width="100%" controls>
+        <source id="modal-source" src="" type="video/mp4">
+        Votre navigateur ne supporte pas la balise vidéo.
+      </video>
+    </div>
+  </div>
+
+  <script>
+    // Lecture modale
+    document.querySelectorAll('.thumbnail-container').forEach(container => {
+      container.addEventListener('click', () => {
+        const videoUrl = container.getAttribute('data-video');
+        const modal = document.getElementById('video-modal');
+        const video = document.getElementById('modal-video');
+        const source = document.getElementById('modal-source');
+        source.src = videoUrl;
+        video.load();
+        modal.style.display = "flex";
+      });
+    });
+
+    document.getElementById('modal-close').addEventListener('click', () => {
+      document.getElementById('video-modal').style.display = "none";
+      document.getElementById('modal-video').pause();
+    });
+
+    window.addEventListener('click', (e) => {
+      const modal = document.getElementById('video-modal');
+      if (e.target === modal) {
+        modal.style.display = "none";
+        document.getElementById('modal-video').pause();
+      }
+    });
+
+    // 🔴 Suppression d'une vidéo
+    document.querySelectorAll('.delete-button').forEach(button => {
+      button.addEventListener('click', async () => {
+        const videoItem = button.closest('.video-item');
+        const videoId = videoItem.dataset.id;
+
+        if (confirm('Supprimer cette vidéo ?')) {
+          const res = await fetch(`/api/delete/${videoId}`, { method: 'DELETE' });
+          if (res.ok) {
+            videoItem.remove();
+          } else {
+            alert('Erreur lors de la suppression');
+          }
+        }
+      });
+    });
+
+    // 🔴 Bouton clear all
+    const clearBtn = document.getElementById('clear-all-button');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', async () => {
+        if (confirm('Supprimer TOUTES les vidéos ?')) {
+          const res = await fetch(`/api/clear`, { method: 'DELETE' });
+          if (res.ok) {
+            document.querySelector('.video-gallery').innerHTML = '';
+            clearBtn.remove();
+          } else {
+            alert('Erreur lors du nettoyage');
+          }
+        }
+      });
+    }
+  </script>
+
+</body>
+</html>
